@@ -25,6 +25,9 @@ import copy
 import rospy
 import rospkg
 
+import cv2
+import numpy as np
+
 from gazebo_msgs.srv import (
     SpawnModel,
     DeleteModel,
@@ -157,25 +160,34 @@ class PickAndPlace(object):
         self.gripper_open()
         # retract to clear object
         self._retract()
-
+    
 def load_gazebo_models(table_pose=Pose(position=Point(x=0.75, y=0.0, z=0.0)),
                        table_reference_frame="world",
                        block_pose=Pose(position=Point(x=0.4225, y=0.1265, z=0.7725)),
                        block_reference_frame="world"):
+
+    blue_pose = Pose(position=Point(x=0.4225, y=-0.1265, z=0.7725))
+    camera_pose = Pose(position=Point(x=1, y=0, z=1))
+    
     # Get Models' Path
     model_path = rospkg.RosPack().get_path('sawyer_sim_examples')+"/models/"
     # Load Table SDF
     table_xml = ''
     with open (model_path + "cafe_table/model.sdf", "r") as table_file:
         table_xml=table_file.read().replace('\n', '')
-    # Load Block URDF
+    # Load RED Block URDF
     block_xml = ''
     with open (model_path + "block/model.urdf", "r") as block_file:
         block_xml=block_file.read().replace('\n', '')
+    # Load BLUE Block URDF
+    blue_xml = ''
+    with open (model_path + "block_blue/model.urdf", "r") as blue_file:
+        blue_xml=blue_file.read().replace('\n', '')
     # Load Camera SDF
-    # camera_xml = ''
-    # with open (model_path + "distorted_camera/model.sdf", "r") as camera_file:
-    #     camera_xml=camera_file.read().replace('\n', '')
+    camera_xml = ''
+    with open (model_path + "camera/model.sdf", "r") as camera_file:
+        camera_xml=camera_file.read().replace('\n', '')
+
     # Spawn Table SDF
     rospy.wait_for_service('/gazebo/spawn_sdf_model')
     try:
@@ -184,7 +196,7 @@ def load_gazebo_models(table_pose=Pose(position=Point(x=0.75, y=0.0, z=0.0)),
                              table_pose, table_reference_frame)
     except rospy.ServiceException, e:
         rospy.logerr("Spawn SDF service call failed: {0}".format(e))
-    # Spawn Block URDF
+    # Spawn RED Block URDF
     rospy.wait_for_service('/gazebo/spawn_urdf_model')
     try:
         spawn_urdf = rospy.ServiceProxy('/gazebo/spawn_urdf_model', SpawnModel)
@@ -192,22 +204,24 @@ def load_gazebo_models(table_pose=Pose(position=Point(x=0.75, y=0.0, z=0.0)),
                                block_pose, block_reference_frame)
     except rospy.ServiceException, e:
         rospy.logerr("Spawn URDF service call failed: {0}".format(e))
-    # # Spawn Block 2 URDF
-    # rospy.wait_for_service('/gazebo/spawn_urdf_model')
-    # try:
-    #     spawn_urdf = rospy.ServiceProxy('/gazebo/spawn_urdf_model', SpawnModel)
-    #     resp_urdf = spawn_urdf("block", block_xml, "/",
-    #                            Pose(position=Point(x=0.3, y=0.2, z=0.7725)), block_reference_frame)
-    # except rospy.ServiceException, e:
-    #     rospy.logerr("Spawn URDF service call failed: {0}".format(e))
+
+    # Spawn BLUE Block URDF
+    rospy.wait_for_service('/gazebo/spawn_urdf_model')
+    try:
+        spawn_urdf = rospy.ServiceProxy('/gazebo/spawn_urdf_model', SpawnModel)
+        resp_urdf = spawn_urdf("blue", blue_xml, "/",
+                               blue_pose, block_reference_frame)
+    except rospy.ServiceException, e:
+        rospy.logerr("Spawn URDF service call failed: {0}".format(e))
+
     # Spawn Camera SDF
-    # rospy.wait_for_service('/gazebo/spawn_sdf_model')
-    # try:
-    #     spawn_sdf = rospy.ServiceProxy('/gazebo/spawn_sdf_model', SpawnModel)
-    #     resp_sdf = spawn_sdf("distorted_camera", camera_xml, "/",
-    #                          Pose(position=Point(x=0.6, y=0.4, z=0.7725)), block_reference_frame)
-    # except rospy.ServiceException, e:
-    #     rospy.logerr("Spawn SDF service call failed: {0}".format(e))
+    rospy.wait_for_service('/gazebo/spawn_sdf_model')
+    try:
+        spawn_sdf = rospy.ServiceProxy('/gazebo/spawn_sdf_model', SpawnModel)
+        resp_sdf = spawn_sdf("camera", camera_xml, "/",
+                             camera_pose, table_reference_frame)
+    except rospy.ServiceException, e:
+        rospy.logerr("Spawn SDF service call failed: {0}".format(e))
 
 def delete_gazebo_models():
     # This will be called on ROS Exit, deleting Gazebo models
@@ -220,6 +234,50 @@ def delete_gazebo_models():
         resp_delete = delete_model("block")
     except rospy.ServiceException, e:
         print("Delete Model service call failed: {0}".format(e))
+
+# def getBlockPose():
+    
+#     # im = cv2.imread('./table-view.png')
+#     # imgray = cv2.cvtColor(im,cv2.COLOR_BGR2GRAY)
+#     # ret,thresh = cv2.threshold(imgray,1,255,0)
+
+#     overhead_orientation = Quaternion(
+#                              x=-0.00142460053167,
+#                              y=0.999994209902,
+#                              z=-0.00177030764765,
+#                              w=0.00253311793936)
+#     # TODO: get cv_image from subscriber
+    
+
+#     # # Convert to grayscale and threshold
+    
+
+#     # # Find contours, draw on image and save
+#     #im2, contours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+#     # #cv2.drawContours(im, contours, -1, (0,255,0), 3)
+#     # #cv2.imwrite('result1.png',im)
+
+#     # # Show user what we found
+#     # for cnt in contours:
+#     #     object = cv2.minAreaRect(cnt)
+#         #angle = object[-1]
+#         #if angle < -45:
+#         #    angle = (90 + angle)
+#         # otherwise, just take the inverse of the angle to make
+#         # it positive
+#         #else:
+#         #    angle = -angle
+    
+#   #coordinates = object[0]
+#    # image_x = 0.45
+#    # image_y = 0.155
+#     # block_posed = Pose(
+#     #        position=Point(x=image_x, y=image_y, z=-0.129),
+#     #        orientation=overhead_orientation)
+#     block_posed = Pose(
+#          position=Point(x=0.45, y=0.155, z=-0.129),
+#          orientation=overhead_orientation)
+#     return block_posed
 
 def main():
     """SDK Inverse Kinematics Pick and Place Example
@@ -243,6 +301,11 @@ def main():
     # Remove models from the scene on shutdown
     rospy.on_shutdown(delete_gazebo_models)
 
+    # subscriber to imagery node meant to recieve the pose
+    # from camera topic and CV analysis
+    # ERROR: couldn't get the message flow to work (Michael)
+    # sub = rospy.Subscriber("block_location", String)
+
     limb = 'right'
     hover_distance = 0.15 # meters
     # Starting Joint angles for right arm
@@ -261,40 +324,42 @@ def main():
                              z=-0.00177030764765,
                              w=0.00253311793936)
 
-    #camera_orientation = 
     block_poses = list()
     #initial position of block
     block_poses.append(Pose(
         position=Point(x=0.45, y=0.155, z=-0.129),
-        orientation=overhead_orientation))
+        orientation=overhead_orientation)) #red block position
     
-    #end position
+    
     block_poses.append(Pose(
+        position=Point(x=0.4225, y=-0.1265, z=0.7725), 
+        orientation=overhead_orientation))#blue block position
+    #end position
+
+    #pose_target = getBlockPose()
+    #block_poses.append(pose_target)
+    
+    end_pose = Pose(
         position=Point(x=0.6, y=-0.1, z=-0.129),
-        orientation=overhead_orientation))
+        orientation=overhead_orientation)
 
     # Move to the desired starting angles
     print("Running. Ctrl-c to quit")
     pnp.move_to_start(starting_joint_angles)
-    idx = 0
+    #idx = 1
     while not rospy.is_shutdown():
-
-    #while block not moved
-        if(block_poses):
-            print("\nPicking...")
-        #updated position of block
-            pnp.pick(block_poses[0])
-            print("\nPlacing...")
-            pnp.place(block_poses[1])
+        #while block not moved
+        #if(block_poses):
+            #print("\nPicking...")
+            #updated position of block
+        pnp.pick(block_poses[0])
+            #print("\nPlacing...")
+        pnp.place(end_pose)
+        
+        pnp.pick(block_poses[1])
+        pnp.place(end_pose)
             #same end position
-            #from camera, update block_poses
-            if(idx == 1):
-                block_poses.clear()
-            else:
-                block_poses[0] = Pose(
-                                 position=Point(x=0.7, y=0.155, z=-0.129),
-                                 orientation=overhead_orientation)#new position
-                idx = 1
+            #from image, update block_poses
 
     return 0
 
